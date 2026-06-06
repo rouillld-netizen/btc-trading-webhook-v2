@@ -41,11 +41,14 @@ async def webhook(request: Request):
     print("WEBHOOK_RECEIVED:", data)
 
     # Notification téléphone
-    send_push(
-        f"🚀 {data.get('action', 'unknown')}\n"
-        f"Symbole : {data.get('symbol', '-')}\n"
-        f"Stratégie : {data.get('strategy', '-')}"
-    )
+    should_notify = data.get("notify", True)
+
+    if should_notify:
+        send_push(
+            f"🚀 {data.get('action', 'unknown')}\n"
+            f"Symbole : {data.get('symbol', '-')}\n"
+            f"Stratégie : {data.get('strategy', '-')}"
+        )
 
     log = {
         "received_at": datetime.now(timezone.utc).isoformat(),
