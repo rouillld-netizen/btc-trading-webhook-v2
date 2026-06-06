@@ -80,6 +80,30 @@ def binance_time():
             "message": str(e)
         }
 
+@app.get("/binance/server-time")
+def binance_server_time():
+    r = requests.get(
+        "https://api.binance.com/api/v3/time",
+        timeout=10
+    )
+    return r.json()
+
+@app.get("/binance/key-test")
+def binance_key_test():
+
+    r = requests.get(
+        "https://api.binance.com/api/v3/account",
+        headers={
+            "X-MBX-APIKEY": BINANCE_API_KEY
+        },
+        timeout=10
+    )
+
+    return {
+        "status_code": r.status_code,
+        "response": r.text
+    }
+
 def send_push(message):
     try:
         requests.post(
