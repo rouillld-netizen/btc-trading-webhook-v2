@@ -21,6 +21,64 @@ BINANCE_BASE_URL = "https://api.binance.com"
 def home():
     return {"status": "online"}
 
+@app.get("/ip")
+def get_ip():
+    try:
+        r = requests.get(
+            "https://api.ipify.org?format=json",
+            timeout=10
+        )
+
+        return {
+            "status": "ok",
+            "ip_info": r.json()
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@app.get("/binance/ping")
+def binance_ping():
+    try:
+        r = requests.get(
+            "https://api.binance.com/api/v3/ping",
+            timeout=10
+        )
+
+        return {
+            "status_code": r.status_code,
+            "response": r.text
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@app.get("/binance/time")
+def binance_time():
+    try:
+        r = requests.get(
+            "https://api.binance.com/api/v3/time",
+            timeout=10
+        )
+
+        return {
+            "status_code": r.status_code,
+            "response": r.text
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 def send_push(message):
     try:
