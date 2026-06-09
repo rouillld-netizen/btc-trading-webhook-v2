@@ -192,6 +192,46 @@ def binance_margin_account():
         "assets": filtered_assets,
     }
 
+def binance_signed_post(path, params=None):
+    if not BINANCE_API_KEY or not BINANCE_API_SECRET:
+        raise HTTPException(status_code=500, detail="Binance API variables missing")
+
+    params = params or {}
+    params["timestamp"] = int(time.time() * 1000)
+    params["recvWindow"] = 5000
+
+    query_string = urlencode(params)
+    signature = hmac.new(
+        BINANCE_API_SECRET.encode("utf-8"),
+        query_string.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    url = f"{BINANCE_BASE_URL}{path}?{query_string}&signature={signature}"
+
+    response = requests.post(
+        url,
+        headers={"X-MBX-APIKEY": BINANCE_API_KEY},
+        timeout=10,
+    )
+
+    if response.status_code != 200:
+        print("BINANCE_POST_ERROR:", response.status_code, response.text)
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+    return response.json()
+
+@app.get("/binance/order-test")
+def binance_order_test():
+    return binance_signed_post(
+        "/api/v3/order/test",
+        {
+            "symbol": "BTCUSDC",
+            "side": "BUY",
+            "type": "MARKET",
+            "quoteOrderQty": "10"
+        }
+    )
 
 @app.post("/webhook")
 async def webhook(request: Request):
