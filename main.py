@@ -221,6 +221,33 @@ def binance_signed_post(path, params=None):
 
     return response.json()
 
+def execute_margin_test_order(action):
+    if action == "open_long":
+        return binance_signed_post(
+            "/sapi/v1/margin/order",
+            {
+                "symbol": "BTCUSDC",
+                "side": "BUY",
+                "type": "MARKET",
+                "quoteOrderQty": "10",
+                "sideEffectType": "NO_SIDE_EFFECT"
+            }
+        )
+
+    if action == "close_long":
+        return binance_signed_post(
+            "/sapi/v1/margin/order",
+            {
+                "symbol": "BTCUSDC",
+                "side": "SELL",
+                "type": "MARKET",
+                "quantity": "0.00016",
+                "sideEffectType": "NO_SIDE_EFFECT"
+            }
+        )
+
+    return None
+
 @app.get("/binance/order-test")
 def binance_order_test():
     return binance_signed_post(
@@ -248,6 +275,12 @@ async def webhook(request: Request):
 
     print("WEBHOOK_RECEIVED:", safe_data)
 
+    binance_result = None
+
+    if data.get("action") in ["open_long", "close_long"]:
+        binance_result = execute_margin_test_order(data.get("action"))
+        print("BINANCE_RESULT:", binance_result)
+
     should_notify = data.get("notify", True)
 
     if should_notify:
@@ -272,4 +305,5 @@ async def webhook(request: Request):
         "ok": True,
         "message": "Signal received",
         "data": log,
+        "binance_result": binance_result,
     }
