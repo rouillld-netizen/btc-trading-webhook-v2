@@ -233,6 +233,19 @@ def binance_order_test():
         }
     )
 
+@app.get("/binance/buy-test")
+def binance_buy_test():
+
+    return binance_signed_post(
+        "/api/v3/order",
+        {
+            "symbol": "BTCUSDC",
+            "side": "BUY",
+            "type": "MARKET",
+            "quoteOrderQty": "10"
+        }
+    )
+
 @app.post("/webhook")
 async def webhook(request: Request):
     try:
