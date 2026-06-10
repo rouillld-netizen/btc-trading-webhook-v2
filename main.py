@@ -259,6 +259,20 @@ def binance_margin_buy_test():
         }
     )
 
+@app.get("/binance/margin-sell-test")
+def binance_margin_sell_test():
+
+    return binance_signed_post(
+        "/sapi/v1/margin/order",
+        {
+            "symbol": "BTCUSDC",
+            "side": "SELL",
+            "type": "MARKET",
+            "quantity": "0.00016",
+            "sideEffectType": "NO_SIDE_EFFECT"
+        }
+    )
+
 @app.post("/webhook")
 async def webhook(request: Request):
     try:
