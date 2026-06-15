@@ -274,7 +274,14 @@ async def webhook(request: Request):
     safe_data.pop("secret", None)
 
     print("WEBHOOK_RECEIVED:", safe_data)
-
+    print("MODE:", data.get("mode"))
+    print("TEST_USDC:", data.get("test_usdc"))
+    print("CAPITAL_PCT:", data.get("capital_pct"))
+    print("RISK_PCT:", data.get("risk_pct"))
+    print("MAX_LEVERAGE:", data.get("max_leverage"))
+    print("ENTRY:", data.get("entry_price"))
+    print("SL:", data.get("sl_price"))
+    print("TP:", data.get("tp_price"))
     binance_result = None
 
     if data.get("action") in ["open_long", "close_long"]:
