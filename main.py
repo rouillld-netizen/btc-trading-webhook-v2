@@ -21,88 +21,33 @@ BINANCE_BASE_URL = "https://api.binance.com"
 def home():
     return {"status": "online"}
 
+
 @app.get("/ip")
 def get_ip():
     try:
-        r = requests.get(
-            "https://api.ipify.org?format=json",
-            timeout=10
-        )
-
-        return {
-            "status": "ok",
-            "ip_info": r.json()
-        }
-
+        r = requests.get("https://api.ipify.org?format=json", timeout=10)
+        return {"status": "ok", "ip_info": r.json()}
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return {"status": "error", "message": str(e)}
 
 
 @app.get("/binance/ping")
 def binance_ping():
     try:
-        r = requests.get(
-            "https://api.binance.com/api/v3/ping",
-            timeout=10
-        )
-
-        return {
-            "status_code": r.status_code,
-            "response": r.text
-        }
-
+        r = requests.get(f"{BINANCE_BASE_URL}/api/v3/ping", timeout=10)
+        return {"status_code": r.status_code, "response": r.text}
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return {"status": "error", "message": str(e)}
 
 
 @app.get("/binance/time")
 def binance_time():
     try:
-        r = requests.get(
-            "https://api.binance.com/api/v3/time",
-            timeout=10
-        )
-
-        return {
-            "status_code": r.status_code,
-            "response": r.text
-        }
-
+        r = requests.get(f"{BINANCE_BASE_URL}/api/v3/time", timeout=10)
+        return {"status_code": r.status_code, "response": r.text}
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return {"status": "error", "message": str(e)}
 
-@app.get("/binance/server-time")
-def binance_server_time():
-    r = requests.get(
-        "https://api.binance.com/api/v3/time",
-        timeout=10
-    )
-    return r.json()
-
-@app.get("/binance/key-test")
-def binance_key_test():
-
-    r = requests.get(
-        "https://api.binance.com/api/v3/account",
-        headers={
-            "X-MBX-APIKEY": BINANCE_API_KEY
-        },
-        timeout=10
-    )
-
-    return {
-        "status_code": r.status_code,
-        "response": r.text
-    }
 
 def send_push(message):
     try:
@@ -149,17 +94,79 @@ def binance_signed_get(path, params=None):
     return response.json()
 
 
+def binance_signed_post(path, params=None):
+    if not BINANCE_API_KEY or not BINANCE_API_SECRET:
+        raise HTTPException(status_code=500, detail="Binance API variables missing")
+
+    params = params or {}
+    params["timestamp"] = int(time.time() * 1000)
+    params["recvWindow"] = 5000
+
+    query_string = urlencode(params)
+    signature = hmac.new(
+        BINANCE_API_SECRET.encode("utf-8"),
+        query_string.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    url = f"{BINANCE_BASE_URL}{path}?{query_string}&signature={signature}"
+
+    response = requests.post(
+        url,
+        headers={"X-MBX-APIKEY": BINANCE_API_KEY},
+        timeout=10,
+    )
+
+    if response.status_code != 200:
+        print("BINANCE_POST_ERROR:", response.status_code, response.text)
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+    return response.json()
+
+
+def calculate_position_size(
+    capital_available,
+    capital_pct,
+    risk_pct,
+    max_leverage,
+    entry_price,
+    sl_price
+):
+    capital_max = capital_available * (capital_pct / 100)
+    risk_max = capital_available * (risk_pct / 100)
+    risk_per_btc = abs(entry_price - sl_price)
+
+    if risk_per_btc <= 0:
+        return {
+            "status": "error",
+            "reason": "invalid stop distance",
+        }
+
+    qty_risk = risk_max / risk_per_btc
+    qty_leverage = (capital_max * max_leverage) / entry_price
+    qty_final = min(qty_risk, qty_leverage)
+
+    return {
+        "capital_available": capital_available,
+        "capital_max": capital_max,
+        "risk_max": risk_max,
+        "risk_per_btc": risk_per_btc,
+        "qty_risk": qty_risk,
+        "qty_leverage": qty_leverage,
+        "qty_final": qty_final,
+        "position_value": qty_final * entry_price,
+    }
+
+
 @app.get("/binance/spot-account")
 def binance_spot_account():
     data = binance_signed_get("/api/v3/account", {"omitZeroBalances": "true"})
-
-    balances = data.get("balances", [])
 
     return {
         "status": "ok",
         "account_type": "spot",
         "can_trade": data.get("canTrade"),
-        "balances": balances,
+        "balances": data.get("balances", []),
     }
 
 
@@ -192,61 +199,6 @@ def binance_margin_account():
         "assets": filtered_assets,
     }
 
-def binance_signed_post(path, params=None):
-    if not BINANCE_API_KEY or not BINANCE_API_SECRET:
-        raise HTTPException(status_code=500, detail="Binance API variables missing")
-
-    params = params or {}
-    params["timestamp"] = int(time.time() * 1000)
-    params["recvWindow"] = 5000
-
-    query_string = urlencode(params)
-    signature = hmac.new(
-        BINANCE_API_SECRET.encode("utf-8"),
-        query_string.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-
-    url = f"{BINANCE_BASE_URL}{path}?{query_string}&signature={signature}"
-
-    response = requests.post(
-        url,
-        headers={"X-MBX-APIKEY": BINANCE_API_KEY},
-        timeout=10,
-    )
-
-    if response.status_code != 200:
-        print("BINANCE_POST_ERROR:", response.status_code, response.text)
-        raise HTTPException(status_code=response.status_code, detail=response.text)
-
-    return response.json()
-
-def execute_margin_test_order(action):
-    if action == "open_long":
-        return binance_signed_post(
-            "/sapi/v1/margin/order",
-            {
-                "symbol": "BTCUSDC",
-                "side": "BUY",
-                "type": "MARKET",
-                "quoteOrderQty": "10",
-                "sideEffectType": "NO_SIDE_EFFECT"
-            }
-        )
-
-    if action == "close_long":
-        return binance_signed_post(
-            "/sapi/v1/margin/order",
-            {
-                "symbol": "BTCUSDC",
-                "side": "SELL",
-                "type": "MARKET",
-                "quantity": "0.00016",
-                "sideEffectType": "NO_SIDE_EFFECT"
-            }
-        )
-
-    return None
 
 @app.get("/binance/order-test")
 def binance_order_test():
@@ -256,9 +208,10 @@ def binance_order_test():
             "symbol": "BTCUSDC",
             "side": "BUY",
             "type": "MARKET",
-            "quoteOrderQty": "10"
-        }
+            "quoteOrderQty": "10",
+        },
     )
+
 
 @app.post("/webhook")
 async def webhook(request: Request):
@@ -274,25 +227,28 @@ async def webhook(request: Request):
     safe_data.pop("secret", None)
 
     print("WEBHOOK_RECEIVED:", safe_data)
-    print("MODE:", data.get("mode"))
-    print("TEST_USDC:", data.get("test_usdc"))
-    print("CAPITAL_PCT:", data.get("capital_pct"))
-    print("RISK_PCT:", data.get("risk_pct"))
-    print("MAX_LEVERAGE:", data.get("max_leverage"))
-    print("ENTRY:", data.get("entry_price"))
-    print("SL:", data.get("sl_price"))
-    print("TP:", data.get("tp_price"))
-    binance_result = None
 
-    if data.get("action") in ["open_long", "close_long"]:
-        binance_result = execute_margin_test_order(data.get("action"))
-        print("BINANCE_RESULT:", binance_result)
+    binance_result = None
+    position_calc = None
+
+    if data.get("action") in ["open_long", "open_short"]:
+        position_calc = calculate_position_size(
+            capital_available=15000,
+            capital_pct=float(data.get("capital_pct", 0)),
+            risk_pct=float(data.get("risk_pct", 0)),
+            max_leverage=float(data.get("max_leverage", 1)),
+            entry_price=float(data.get("entry_price", 0)),
+            sl_price=float(data.get("sl_price", 0)),
+        )
+
+        print("POSITION_CALC:", position_calc)
 
     should_notify = data.get("notify", True)
 
     if should_notify:
         send_push(
             f"🚀 {data.get('action', 'unknown')}\n"
+            f"Mode : {data.get('mode', '-')}\n"
             f"Symbole : {data.get('symbol', '-')}\n"
             f"Stratégie : {data.get('strategy', '-')}\n"
             f"Entrée : {data.get('entry_price', '-')}\n"
@@ -305,6 +261,7 @@ async def webhook(request: Request):
         "action": data.get("action"),
         "symbol": data.get("symbol"),
         "strategy": data.get("strategy"),
+        "mode": data.get("mode"),
         "notify": should_notify,
     }
 
@@ -313,4 +270,5 @@ async def webhook(request: Request):
         "message": "Signal received",
         "data": log,
         "binance_result": binance_result,
+        "position_calc": position_calc,
     }
