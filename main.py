@@ -10,6 +10,8 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
+APP_VERSION = "2026-06-18-v7"
+
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "test-secret")
 
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
