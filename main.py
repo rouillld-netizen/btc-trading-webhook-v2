@@ -170,6 +170,42 @@ def calculate_position_size(
         "position_value": qty_final * entry_price,
     }
 
+def build_order_plan(data, position_calc):
+    mode = str(data.get("mode", "")).lower()
+
+    if mode == "test":
+        test_usdc = float(data.get("test_usdc", 0))
+
+        if test_usdc <= 0:
+            return {
+                "status": "error",
+                "reason": "invalid test_usdc"
+            }
+
+        return {
+            "mode": "test",
+            "quote_order_qty": test_usdc,
+            "position_calc_used": False
+        }
+
+    if mode == "live":
+        if not position_calc:
+            return {
+                "status": "error",
+                "reason": "missing position_calc"
+            }
+
+        return {
+            "mode": "live",
+            "quantity": position_calc["qty_final"],
+            "position_value": position_calc["position_value"],
+            "position_calc_used": True
+        }
+
+    return {
+        "status": "ignored",
+        "reason": "mode not executable"
+    }
 
 @app.get("/binance/spot-account")
 def binance_spot_account():
@@ -244,6 +280,28 @@ async def webhook(request: Request):
     binance_result = None
     position_calc = None
 
+    binance_result = None
+    position_calc = None
+    order_plan = None
+
+    if data.get("action") in ["open_long", "open_short"]:
+        position_calc = calculate_position_size(
+            capital_available=get_margin_usdc_available(),
+            capital_pct=float(data.get("capital_pct", 0)),
+            risk_pct=float(data.get("risk_pct", 0)),
+            max_leverage=float(data.get("max_leverage", 1)),
+            entry_price=float(data.get("entry_price", 0)),
+            sl_price=float(data.get("sl_price", 0)),
+        )
+
+        print("POSITION_CALC:", position_calc)
+
+        order_plan = build_order_plan(data, position_calc)
+        print("ORDER_PLAN:", order_plan)
+
+
+
+
     if data.get("action") in ["open_long", "open_short"]:
         position_calc = calculate_position_size(
             capital_available=get_margin_usdc_available(),
@@ -284,4 +342,5 @@ async def webhook(request: Request):
         "data": log,
         "binance_result": binance_result,
         "position_calc": position_calc,
+        "order_plan": order_plan,
     }
