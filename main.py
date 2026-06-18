@@ -21,8 +21,10 @@ BINANCE_BASE_URL = "https://api.binance.com"
 
 @app.get("/")
 def home():
-    return {"status": "online"}
-
+    return {
+        "status": "online",
+        "version": APP_VERSION
+    }
 
 @app.get("/ip")
 def get_ip():
