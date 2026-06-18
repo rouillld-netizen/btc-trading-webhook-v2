@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-18-v7"
+APP_VERSION = "2026-06-18-v8"
 
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "test-secret")
 
