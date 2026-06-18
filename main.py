@@ -18,7 +18,6 @@ BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET")
 BINANCE_BASE_URL = "https://api.binance.com"
 
-
 @app.get("/")
 def home():
     return {
