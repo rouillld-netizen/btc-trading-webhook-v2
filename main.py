@@ -123,6 +123,16 @@ def binance_signed_post(path, params=None):
 
     return response.json()
 
+def get_margin_usdc_available():
+    data = binance_signed_get("/sapi/v1/margin/account")
+    assets = data.get("userAssets", [])
+
+    for asset in assets:
+        if asset.get("asset") == "USDC":
+            return float(asset.get("netAsset", 0))
+
+    return 0.0
+
 
 def calculate_position_size(
     capital_available,
@@ -233,7 +243,7 @@ async def webhook(request: Request):
 
     if data.get("action") in ["open_long", "open_short"]:
         position_calc = calculate_position_size(
-            capital_available=15000,
+            capital_available=get_margin_usdc_available(),
             capital_pct=float(data.get("capital_pct", 0)),
             risk_pct=float(data.get("risk_pct", 0)),
             max_leverage=float(data.get("max_leverage", 1)),
