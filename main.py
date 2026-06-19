@@ -12,6 +12,8 @@ app = FastAPI()
 
 APP_VERSION = "2026-06-18-v8"
 
+PROCESSED_EVENTS = set()
+
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "test-secret")
 
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
@@ -274,6 +276,19 @@ async def webhook(request: Request):
 
     safe_data = data.copy()
     safe_data.pop("secret", None)
+
+    event_id = data.get("event_id")
+
+    if event_id:
+        if event_id in PROCESSED_EVENTS:
+            print("DUPLICATE_EVENT_IGNORED:", event_id)
+            return {
+                "ok": True,
+                "message": "Duplicate event ignored",
+                "event_id": event_id,
+            }
+
+        PROCESSED_EVENTS.add(event_id)
 
     print("WEBHOOK_RECEIVED:", safe_data)
 
