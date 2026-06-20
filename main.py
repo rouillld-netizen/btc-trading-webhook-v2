@@ -209,6 +209,51 @@ def build_order_plan(data, position_calc):
         "reason": "mode not executable"
     }
 
+def execute_test_long_order(action, order_plan):
+    if not order_plan or order_plan.get("mode") != "test":
+        return None
+
+    if action == "open_long":
+        return binance_signed_post(
+            "/sapi/v1/margin/order",
+            {
+                "symbol": "BTCUSDC",
+                "side": "BUY",
+                "type": "MARKET",
+                "quoteOrderQty": str(order_plan["quote_order_qty"]),
+                "sideEffectType": "NO_SIDE_EFFECT",
+            },
+        )
+
+    if action == "close_long":
+        margin = binance_signed_get("/sapi/v1/margin/account")
+        assets = margin.get("userAssets", [])
+
+        btc_free = 0.0
+        for asset in assets:
+            if asset.get("asset") == "BTC":
+                btc_free = float(asset.get("free", 0))
+                break
+
+        if btc_free <= 0:
+            return {
+                "status": "ignored",
+                "reason": "no BTC available to close long",
+            }
+
+        return binance_signed_post(
+            "/sapi/v1/margin/order",
+            {
+                "symbol": "BTCUSDC",
+                "side": "SELL",
+                "type": "MARKET",
+                "quantity": str(btc_free),
+                "sideEffectType": "NO_SIDE_EFFECT",
+            },
+        )
+
+    return None
+
 @app.get("/binance/spot-account")
 def binance_spot_account():
     data = binance_signed_get("/api/v3/account", {"omitZeroBalances": "true"})
@@ -313,6 +358,10 @@ async def webhook(request: Request):
 
         order_plan = build_order_plan(data, position_calc)
         print("ORDER_PLAN:", order_plan)
+
+    if data.get("action") in ["open_long", "close_long"]:
+        binance_result = execute_test_long_order(data.get("action"), order_plan)
+        print("BINANCE_RESULT:", binance_result)
 
     should_notify = data.get("notify", True)
 
