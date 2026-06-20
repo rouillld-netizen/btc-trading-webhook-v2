@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-20-v11"
+APP_VERSION = "2026-06-20-v12"
 
 PROCESSED_EVENTS = set()
 
@@ -339,9 +339,6 @@ async def webhook(request: Request):
 
     binance_result = None
     position_calc = None
-
-    binance_result = None
-    position_calc = None
     order_plan = None
 
     if data.get("action") in ["open_long", "open_short"]:
@@ -359,12 +356,20 @@ async def webhook(request: Request):
         order_plan = build_order_plan(data, position_calc)
         print("ORDER_PLAN:", order_plan)
 
-    if data.get("action") in ["open_long", "close_long"]:
-        binance_result = execute_test_long_order(data.get("action"), order_plan)
-        print("BINANCE_RESULT:", binance_result)
+    action = data.get("action")
+
+    if action in ["open_long", "close_long"]:
+            if data.get("mode") == "Test":
+                test_plan = {
+                    "mode": "test",
+                    "quote_order_qty": float(data.get("test_usdc", 0)),
+                    "position_calc_used": False,
+                }
+
+                binance_result = execute_test_long_order(action, test_plan)
+                print("BINANCE_RESULT:", binance_result)
 
     should_notify = data.get("notify", True)
-
     if should_notify:
         send_push(
             f"🚀 {data.get('action', 'unknown')}\n"
