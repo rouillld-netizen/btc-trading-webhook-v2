@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-18-v9"
+APP_VERSION = "2026-06-20-v10"
 
 PROCESSED_EVENTS = set()
 
@@ -313,21 +313,6 @@ async def webhook(request: Request):
 
         order_plan = build_order_plan(data, position_calc)
         print("ORDER_PLAN:", order_plan)
-
-
-
-
-    if data.get("action") in ["open_long", "open_short"]:
-        position_calc = calculate_position_size(
-            capital_available=get_margin_usdc_available(),
-            capital_pct=float(data.get("capital_pct", 0)),
-            risk_pct=float(data.get("risk_pct", 0)),
-            max_leverage=float(data.get("max_leverage", 1)),
-            entry_price=float(data.get("entry_price", 0)),
-            sl_price=float(data.get("sl_price", 0)),
-        )
-
-        print("POSITION_CALC:", position_calc)
 
     should_notify = data.get("notify", True)
 
