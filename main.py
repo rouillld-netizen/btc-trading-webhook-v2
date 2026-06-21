@@ -11,9 +11,11 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-20-v14"
+APP_VERSION = "2026-06-20-v15"
 
 PROCESSED_EVENTS = set()
+
+OPEN_POSITIONS = {}
 
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "test-secret")
 
@@ -221,7 +223,7 @@ def execute_test_long_order(action, order_plan):
         return None
 
     if action == "open_long":
-        return binance_signed_post(
+        result = binance_signed_post(
             "/sapi/v1/margin/order",
             {
                 "symbol": "BTCUSDC",
@@ -232,30 +234,40 @@ def execute_test_long_order(action, order_plan):
             },
         )
 
+        executed_qty = float(result.get("executedQty", 0))
+
+        key = "BTC_H1_LONG"
+        OPEN_POSITIONS[key] = OPEN_POSITIONS.get(key, 0.0) + executed_qty
+
+        print("OPEN_POSITION_UPDATED:", key, OPEN_POSITIONS[key])
+
+        return result
+    
     if action == "close_long":
-        margin = binance_signed_get("/sapi/v1/margin/account")
-        assets = margin.get("userAssets", [])
+        key = "BTC_H1_LONG"
+        btc_tracked = OPEN_POSITIONS.get(key, 0.0)
 
-        btc_free = 0.0
-        for asset in assets:
-            if asset.get("asset") == "BTC":
-                btc_free = float(asset.get("free", 0))
-                break
+        print("BTC_TRACKED:", btc_tracked)
 
-        btc_qty = round_step_size(btc_free, "0.00001")
+        if btc_tracked <= 0:
+            return {
+                "status": "ignored",
+                "reason": "no tracked BTC position to close",
+            }
 
-        print("BTC_FREE:", btc_free)
+        btc_qty = round_step_size(btc_tracked, "0.00001")
+
         print("BTC_QTY:", btc_qty)
 
         if float(btc_qty) <= 0:
             return {
                 "status": "ignored",
                 "reason": "BTC quantity too small after LOT_SIZE rounding",
-                "btc_free": btc_free,
+                "btc_tracked": btc_tracked,
                 "btc_qty": btc_qty,
             }
 
-        return binance_signed_post(
+        result = binance_signed_post(
             "/sapi/v1/margin/order",
             {
                 "symbol": "BTCUSDC",
@@ -265,6 +277,12 @@ def execute_test_long_order(action, order_plan):
                 "sideEffectType": "NO_SIDE_EFFECT",
             },
         )
+
+        OPEN_POSITIONS[key] = 0.0
+
+        print("OPEN_POSITION_CLOSED:", key)
+
+        return result
 
     return None
 
