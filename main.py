@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-20-v13"
+APP_VERSION = "2026-06-20-v14"
 
 PROCESSED_EVENTS = set()
 
@@ -243,6 +243,9 @@ def execute_test_long_order(action, order_plan):
                 break
 
         btc_qty = round_step_size(btc_free, "0.00001")
+
+        print("BTC_FREE:", btc_free)
+        print("BTC_QTY:", btc_qty)
 
         if float(btc_qty) <= 0:
             return {
