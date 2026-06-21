@@ -2,6 +2,7 @@ import os
 import time
 import hmac
 import hashlib
+from decimal import Decimal
 from urllib.parse import urlencode
 from datetime import datetime, timezone
 
@@ -10,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-20-v12"
+APP_VERSION = "2026-06-20-v13"
 
 PROCESSED_EVENTS = set()
 
@@ -19,6 +20,12 @@ WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "test-secret")
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET")
 BINANCE_BASE_URL = "https://api.binance.com"
+
+# Binance : arrondi d'une quantité au stepSize autorisé
+def round_step_size(quantity, step_size):
+    quantity = Decimal(str(quantity))
+    step_size = Decimal(str(step_size))
+    return str((quantity // step_size) * step_size)
 
 @app.get("/")
 def home():
@@ -235,10 +242,14 @@ def execute_test_long_order(action, order_plan):
                 btc_free = float(asset.get("free", 0))
                 break
 
-        if btc_free <= 0:
+        btc_qty = round_step_size(btc_free, "0.00001")
+
+        if float(btc_qty) <= 0:
             return {
                 "status": "ignored",
-                "reason": "no BTC available to close long",
+                "reason": "BTC quantity too small after LOT_SIZE rounding",
+                "btc_free": btc_free,
+                "btc_qty": btc_qty,
             }
 
         return binance_signed_post(
@@ -247,7 +258,7 @@ def execute_test_long_order(action, order_plan):
                 "symbol": "BTCUSDC",
                 "side": "SELL",
                 "type": "MARKET",
-                "quantity": str(btc_free),
+                "quantity": btc_qty,
                 "sideEffectType": "NO_SIDE_EFFECT",
             },
         )
