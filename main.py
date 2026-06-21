@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-20-v16"
+APP_VERSION = "2026-06-20-v17"
 
 PROCESSED_EVENTS = set()
 
@@ -218,7 +218,38 @@ def build_order_plan(data, position_calc):
         "reason": "mode not executable"
     }
 
-def execute_test_long_order(action, order_plan):
+def place_long_stop_loss(quantity, sl_price):
+    btc_qty = round_step_size(quantity, "0.00001")
+
+    stop_price = round(float(sl_price), 2)
+    limit_price = round(float(sl_price) * 0.999, 2)
+
+    print("LONG_STOP_QTY:", btc_qty)
+    print("LONG_STOP_PRICE:", stop_price)
+    print("LONG_STOP_LIMIT:", limit_price)
+
+    if float(btc_qty) <= 0:
+        return {
+            "status": "ignored",
+            "reason": "stop quantity too small",
+            "btc_qty": btc_qty,
+        }
+
+    return binance_signed_post(
+        "/sapi/v1/margin/order",
+        {
+            "symbol": "BTCUSDC",
+            "side": "SELL",
+            "type": "STOP_LOSS_LIMIT",
+            "quantity": btc_qty,
+            "stopPrice": str(stop_price),
+            "price": str(limit_price),
+            "timeInForce": "GTC",
+            "sideEffectType": "NO_SIDE_EFFECT",
+        },
+    )
+
+def execute_test_long_order(action, order_plan, data):
     if not order_plan or order_plan.get("mode") != "test":
         return None
 
@@ -235,6 +266,23 @@ def execute_test_long_order(action, order_plan):
         )
 
         executed_qty = float(result.get("executedQty", 0))
+
+        key = "BTC_H1_LONG"
+        OPEN_POSITIONS[key] = OPEN_POSITIONS.get(key, 0.0) + executed_qty
+
+        print("OPEN_POSITION_UPDATED:", key, OPEN_POSITIONS[key])
+
+        stop_result = place_long_stop_loss(
+            quantity=executed_qty,
+            sl_price=data.get("sl_price"),
+        )
+
+        print("LONG_STOP_RESULT:", stop_result)
+
+        return {
+            "entry_order": result,
+            "stop_order": stop_result,
+        }
 
         key = "BTC_H1_LONG"
         OPEN_POSITIONS[key] = OPEN_POSITIONS.get(key, 0.0) + executed_qty
@@ -466,7 +514,7 @@ async def webhook(request: Request):
             }
 
             if action in ["open_long", "close_long"]:
-                binance_result = execute_test_long_order(action, test_plan)
+                binance_result = execute_test_long_order(action, test_plan, data)
 
             if action in ["open_short", "close_short"]:
                 binance_result = execute_test_short_order(action, test_plan)
