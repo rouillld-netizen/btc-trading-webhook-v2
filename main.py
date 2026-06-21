@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-20-v15"
+APP_VERSION = "2026-06-20-v16"
 
 PROCESSED_EVENTS = set()
 
@@ -297,6 +297,73 @@ def binance_spot_account():
         "balances": data.get("balances", []),
     }
 
+def execute_test_short_order(action, order_plan):
+    if not order_plan or order_plan.get("mode") != "test":
+        return None
+
+    if action == "open_short":
+        result = binance_signed_post(
+            "/sapi/v1/margin/order",
+            {
+                "symbol": "BTCUSDC",
+                "side": "SELL",
+                "type": "MARKET",
+                "quoteOrderQty": str(order_plan["quote_order_qty"]),
+                "sideEffectType": "AUTO_BORROW_REPAY",
+            },
+        )
+
+        executed_qty = float(result.get("executedQty", 0))
+
+        key = "BTC_H1_SHORT"
+        OPEN_POSITIONS[key] = OPEN_POSITIONS.get(key, 0.0) + executed_qty
+
+        print("SHORT_POSITION_UPDATED:", key, OPEN_POSITIONS[key])
+
+        return result
+
+    if action == "close_short":
+        key = "BTC_H1_SHORT"
+        btc_tracked = OPEN_POSITIONS.get(key, 0.0)
+
+        print("SHORT_BTC_TRACKED:", btc_tracked)
+
+        if btc_tracked <= 0:
+            return {
+                "status": "ignored",
+                "reason": "no tracked BTC short position to close",
+            }
+
+        btc_qty = round_step_size(btc_tracked, "0.00001")
+
+        print("SHORT_BTC_QTY:", btc_qty)
+
+        if float(btc_qty) <= 0:
+            return {
+                "status": "ignored",
+                "reason": "BTC short quantity too small after LOT_SIZE rounding",
+                "btc_tracked": btc_tracked,
+                "btc_qty": btc_qty,
+            }
+
+        result = binance_signed_post(
+            "/sapi/v1/margin/order",
+            {
+                "symbol": "BTCUSDC",
+                "side": "BUY",
+                "type": "MARKET",
+                "quantity": btc_qty,
+                "sideEffectType": "AUTO_REPAY",
+            },
+        )
+
+        OPEN_POSITIONS[key] = 0.0
+
+        print("SHORT_POSITION_CLOSED:", key)
+
+        return result
+
+    return None
 
 @app.get("/binance/margin-account")
 def binance_margin_account():
@@ -390,16 +457,21 @@ async def webhook(request: Request):
 
     action = data.get("action")
 
-    if action in ["open_long", "close_long"]:
-            if data.get("mode") == "Test":
-                test_plan = {
-                    "mode": "test",
-                    "quote_order_qty": float(data.get("test_usdc", 0)),
-                    "position_calc_used": False,
-                }
+    if action in ["open_long", "close_long", "open_short", "close_short"]:
+        if data.get("mode") == "Test":
+            test_plan = {
+                "mode": "test",
+                "quote_order_qty": float(data.get("test_usdc", 0)),
+                "position_calc_used": False,
+            }
 
+            if action in ["open_long", "close_long"]:
                 binance_result = execute_test_long_order(action, test_plan)
-                print("BINANCE_RESULT:", binance_result)
+
+            if action in ["open_short", "close_short"]:
+                binance_result = execute_test_short_order(action, test_plan)
+
+            print("BINANCE_RESULT:", binance_result)
 
     should_notify = data.get("notify", True)
     if should_notify:
