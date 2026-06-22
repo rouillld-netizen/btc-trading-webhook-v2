@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-21-v18"
+APP_VERSION = "2026-06-21-v19"
 
 PROCESSED_EVENTS = set()
 
@@ -508,22 +508,29 @@ async def webhook(request: Request):
 
     action = data.get("action")
 
-    if action in ["open_long", "close_long", "open_short", "close_short"]:
-        if data.get("mode") == "Test":
-            test_plan = {
-                "mode": "test",
-                "quote_order_qty": float(data.get("test_usdc", 0)),
-                "position_calc_used": False,
-            }
+if action in ["open_long", "open_short"]:
+    if data.get("mode") == "Test":
+        test_plan = {
+            "mode": "test",
+            "quote_order_qty": float(data.get("test_usdc", 0)),
+            "position_calc_used": False,
+        }
 
-            if action in ["open_long", "close_long"]:
-                binance_result = execute_test_long_order(action, test_plan, data)
+        if action == "open_long":
+            binance_result = execute_test_long_order(action, test_plan, data)
 
-            if action in ["open_short", "close_short"]:
-                binance_result = execute_test_short_order(action, test_plan)
+        if action == "open_short":
+            binance_result = execute_test_short_order(action, test_plan)
 
-            print("BINANCE_RESULT:", binance_result)
+        print("BINANCE_RESULT:", binance_result)
 
+if action in ["close_long", "close_short"]:
+    print("CLOSE_SIGNAL_INFO_ONLY:", action)
+    binance_result = {
+        "status": "ignored",
+        "reason": "close signals are informational only; Binance stops manage exits",
+        "action": action,
+    }
     should_notify = data.get("notify", True)
     if should_notify:
         send_push(
