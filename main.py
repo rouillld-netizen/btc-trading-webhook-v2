@@ -562,11 +562,3 @@ async def webhook(request: Request):
         "position_calc": position_calc,
         "order_plan": order_plan,
     }
-        return {
-        "ok": True,
-        "message": "Signal received",
-        "data": log,
-        "binance_result": binance_result,
-        "position_calc": position_calc,
-        "order_plan": order_plan,
-    }
