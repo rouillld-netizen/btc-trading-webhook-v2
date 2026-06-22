@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-21-v19"
+APP_VERSION = "2026-06-21-v20"
 
 PROCESSED_EVENTS = set()
 
