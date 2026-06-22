@@ -491,7 +491,9 @@ async def webhook(request: Request):
     position_calc = None
     order_plan = None
 
-    if data.get("action") in ["open_long", "open_short"]:
+    action = data.get("action")
+
+    if action in ["open_long", "open_short"]:
         position_calc = calculate_position_size(
             capital_available=get_margin_usdc_available(),
             capital_pct=float(data.get("capital_pct", 0)),
@@ -506,32 +508,32 @@ async def webhook(request: Request):
         order_plan = build_order_plan(data, position_calc)
         print("ORDER_PLAN:", order_plan)
 
-    action = data.get("action")
+        if data.get("mode") == "Test":
+            test_plan = {
+                "mode": "test",
+                "quote_order_qty": float(data.get("test_usdc", 0)),
+                "position_calc_used": False,
+            }
 
-if action in ["open_long", "open_short"]:
-    if data.get("mode") == "Test":
-        test_plan = {
-            "mode": "test",
-            "quote_order_qty": float(data.get("test_usdc", 0)),
-            "position_calc_used": False,
+            if action == "open_long":
+                binance_result = execute_test_long_order(action, test_plan, data)
+
+            if action == "open_short":
+                binance_result = execute_test_short_order(action, test_plan)
+
+            print("BINANCE_RESULT:", binance_result)
+
+    if action in ["close_long", "close_short"]:
+        print("CLOSE_SIGNAL_INFO_ONLY:", action)
+
+        binance_result = {
+            "status": "ignored",
+            "reason": "close signals are informational only; Binance stops manage exits",
+            "action": action,
         }
 
-        if action == "open_long":
-            binance_result = execute_test_long_order(action, test_plan, data)
-
-        if action == "open_short":
-            binance_result = execute_test_short_order(action, test_plan)
-
-        print("BINANCE_RESULT:", binance_result)
-
-if action in ["close_long", "close_short"]:
-    print("CLOSE_SIGNAL_INFO_ONLY:", action)
-    binance_result = {
-        "status": "ignored",
-        "reason": "close signals are informational only; Binance stops manage exits",
-        "action": action,
-    }
     should_notify = data.get("notify", True)
+
     if should_notify:
         send_push(
             f"🚀 {data.get('action', 'unknown')}\n"
@@ -553,6 +555,14 @@ if action in ["close_long", "close_short"]:
     }
 
     return {
+        "ok": True,
+        "message": "Signal received",
+        "data": log,
+        "binance_result": binance_result,
+        "position_calc": position_calc,
+        "order_plan": order_plan,
+    }
+        return {
         "ok": True,
         "message": "Signal received",
         "data": log,
