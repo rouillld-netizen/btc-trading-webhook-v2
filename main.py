@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-20-v17"
+APP_VERSION = "2026-06-21-v18"
 
 PROCESSED_EVENTS = set()
 
@@ -220,13 +220,10 @@ def build_order_plan(data, position_calc):
 
 def place_long_stop_loss(quantity, sl_price):
     btc_qty = round_step_size(quantity, "0.00001")
-
     stop_price = round(float(sl_price), 2)
-    limit_price = round(float(sl_price) * 0.999, 2)
 
     print("LONG_STOP_QTY:", btc_qty)
     print("LONG_STOP_PRICE:", stop_price)
-    print("LONG_STOP_LIMIT:", limit_price)
 
     if float(btc_qty) <= 0:
         return {
@@ -240,11 +237,9 @@ def place_long_stop_loss(quantity, sl_price):
         {
             "symbol": "BTCUSDC",
             "side": "SELL",
-            "type": "STOP_LOSS_LIMIT",
+            "type": "STOP_LOSS",
             "quantity": btc_qty,
             "stopPrice": str(stop_price),
-            "price": str(limit_price),
-            "timeInForce": "GTC",
             "sideEffectType": "NO_SIDE_EFFECT",
         },
     )
@@ -442,6 +437,14 @@ def binance_margin_account():
         "assets": filtered_assets,
     }
 
+@app.get("/binance/open-orders")
+def binance_open_orders():
+    return binance_signed_get(
+        "/sapi/v1/margin/openOrders",
+        {
+            "symbol": "BTCUSDC"
+        }
+    )
 
 @app.get("/binance/order-test")
 def binance_order_test():
