@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-23-v22"
+APP_VERSION = "2026-06-23-v23"
 
 PROCESSED_EVENTS = set()
 
@@ -177,6 +177,15 @@ def get_margin_usdc_available():
 
     return 0.0
 
+def get_margin_btc_free():
+    data = binance_signed_get("/sapi/v1/margin/account")
+    assets = data.get("userAssets", [])
+
+    for asset in assets:
+        if asset.get("asset") == "BTC":
+            return float(asset.get("free", 0))
+
+    return 0.0
 
 def calculate_position_size(
     capital_available,
@@ -249,9 +258,11 @@ def build_order_plan(data, position_calc):
     }
 
 def place_long_stop_loss(quantity, sl_price):
-    btc_qty = round_step_size(quantity, "0.00001")
+    btc_free = get_margin_btc_free()
+    btc_qty = round_step_size(btc_free, "0.00001")
     stop_price = round(float(sl_price), 2)
 
+    print("LONG_STOP_BTC_FREE:", btc_free)
     print("LONG_STOP_QTY:", btc_qty)
     print("LONG_STOP_PRICE:", stop_price)
 
@@ -259,6 +270,7 @@ def place_long_stop_loss(quantity, sl_price):
         return {
             "status": "ignored",
             "reason": "stop quantity too small",
+            "btc_free": btc_free,
             "btc_qty": btc_qty,
         }
 
