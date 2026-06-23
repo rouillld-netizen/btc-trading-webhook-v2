@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-23-v21"
+APP_VERSION = "2026-06-23-v22"
 
 PROCESSED_EVENTS = set()
 
@@ -529,6 +529,15 @@ def binance_open_orders():
         "/sapi/v1/margin/openOrders",
         {
             "symbol": "BTCUSDC"
+        }
+    )
+
+@app.get("/test-update-sl")
+def test_update_sl():
+
+    return update_long_stop_loss(
+        {
+            "sl_price": 65000
         }
     )
 
