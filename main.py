@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-21-v20"
+APP_VERSION = "2026-06-23-v21"
 
 PROCESSED_EVENTS = set()
 
@@ -137,6 +137,36 @@ def binance_signed_post(path, params=None):
 
     return response.json()
 
+def binance_signed_delete(path, params=None):
+    if not BINANCE_API_KEY or not BINANCE_API_SECRET:
+        raise HTTPException(status_code=500, detail="Binance API variables missing")
+
+    params = params or {}
+    params["timestamp"] = int(time.time() * 1000)
+    params["recvWindow"] = 5000
+
+    query_string = urlencode(params)
+    signature = hmac.new(
+        BINANCE_API_SECRET.encode("utf-8"),
+        query_string.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    url = f"{BINANCE_BASE_URL}{path}?{query_string}&signature={signature}"
+
+    response = requests.delete(
+        url,
+        headers={"X-MBX-APIKEY": BINANCE_API_KEY},
+        timeout=10,
+    )
+
+    if response.status_code != 200:
+        print("BINANCE_DELETE_ERROR:", response.status_code, response.text)
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+    return response.json()
+
+
 def get_margin_usdc_available():
     data = binance_signed_get("/sapi/v1/margin/account")
     assets = data.get("userAssets", [])
@@ -243,6 +273,62 @@ def place_long_stop_loss(quantity, sl_price):
             "sideEffectType": "NO_SIDE_EFFECT",
         },
     )
+
+def cancel_all_long_stop_orders():
+    open_orders = binance_signed_get(
+        "/sapi/v1/margin/openOrders",
+        {
+            "symbol": "BTCUSDC"
+        }
+    )
+
+    cancelled = []
+
+    for order in open_orders:
+        if (
+            order.get("side") == "SELL"
+            and order.get("type") in ["STOP_LOSS", "STOP_LOSS_LIMIT"]
+        ):
+            result = binance_signed_delete(
+                "/sapi/v1/margin/order",
+                {
+                    "symbol": "BTCUSDC",
+                    "orderId": order.get("orderId"),
+                },
+            )
+
+            cancelled.append(result)
+
+    print("LONG_STOPS_CANCELLED:", cancelled)
+
+    return cancelled
+
+def update_long_stop_loss(data):
+    key = "BTC_H1_LONG"
+    btc_tracked = OPEN_POSITIONS.get(key, 0.0)
+
+    print("UPDATE_LONG_SL_BTC_TRACKED:", btc_tracked)
+
+    if btc_tracked <= 0:
+        return {
+            "status": "ignored",
+            "reason": "no tracked BTC long position for stop update",
+        }
+
+    cancelled = cancel_all_long_stop_orders()
+
+    stop_result = place_long_stop_loss(
+        quantity=btc_tracked,
+        sl_price=data.get("sl_price"),
+    )
+
+    print("UPDATE_LONG_SL_RESULT:", stop_result)
+
+    return {
+        "status": "ok",
+        "cancelled": cancelled,
+        "new_stop": stop_result,
+    }
 
 def execute_test_long_order(action, order_plan, data):
     if not order_plan or order_plan.get("mode") != "test":
@@ -458,7 +544,6 @@ def binance_order_test():
         },
     )
 
-
 @app.post("/webhook")
 async def webhook(request: Request):
     try:
@@ -531,6 +616,10 @@ async def webhook(request: Request):
             "reason": "close signals are informational only; Binance stops manage exits",
             "action": action,
         }
+
+    if action == "update_sl_long":
+        binance_result = update_long_stop_loss(data)
+        print("BINANCE_RESULT:", binance_result)
 
     should_notify = data.get("notify", True)
 
