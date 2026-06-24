@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-23-v23"
+APP_VERSION = "2026-06-24-v24"
 
 PROCESSED_EVENTS = set()
 
@@ -365,18 +365,21 @@ def execute_test_long_order(action, order_plan, data):
 
         print("OPEN_POSITION_UPDATED:", key, OPEN_POSITIONS[key])
 
+        cancelled_stops = cancel_all_long_stop_orders()
+
         stop_result = place_long_stop_loss(
-            quantity=executed_qty,
+            quantity=None,
             sl_price=data.get("sl_price"),
         )
 
+        print("LONG_STOPS_CANCELLED_AFTER_OPEN:", cancelled_stops)
         print("LONG_STOP_RESULT:", stop_result)
 
         return {
             "entry_order": result,
+            "cancelled_stops": cancelled_stops,
             "stop_order": stop_result,
         }
-
         key = "BTC_H1_LONG"
         OPEN_POSITIONS[key] = OPEN_POSITIONS.get(key, 0.0) + executed_qty
 
