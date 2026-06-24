@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-24-v25"
+APP_VERSION = "2026-06-24-v26"
 
 PROCESSED_EVENTS = set()
 
@@ -349,21 +349,12 @@ def cancel_all_long_stop_orders():
     return cancelled
 
 def update_long_stop_loss(data):
-    key = "BTC_H1_LONG"
-    btc_tracked = OPEN_POSITIONS.get(key, 0.0)
-
-    print("UPDATE_LONG_SL_BTC_TRACKED:", btc_tracked)
-
-    if btc_tracked <= 0:
-        return {
-            "status": "ignored",
-            "reason": "no tracked BTC long position for stop update",
-        }
+    print("UPDATE_LONG_SL_REQUESTED:", data.get("sl_price"))
 
     cancelled = cancel_all_long_stop_orders()
 
     stop_result = place_long_stop_loss(
-        quantity=btc_tracked,
+        quantity=None,
         sl_price=data.get("sl_price"),
     )
 
