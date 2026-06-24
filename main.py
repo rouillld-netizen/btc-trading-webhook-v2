@@ -188,15 +188,28 @@ def get_margin_btc_free():
     return 0.0
 
 def wait_for_margin_btc_free(max_attempts=6, delay_seconds=1):
+    start = time.time()
+
     for attempt in range(1, max_attempts + 1):
         btc_free = get_margin_btc_free()
 
         print(f"WAIT_BTC_FREE_ATTEMPT {attempt}/{max_attempts}: {btc_free}")
 
         if btc_free > 0:
+            elapsed = round(time.time() - start, 3)
+
+            print(
+                f"BTC_FREE_FOUND_AFTER: "
+                f"{elapsed}s ({attempt} attempt(s))"
+            )
+
             return btc_free
 
         time.sleep(delay_seconds)
+
+    elapsed = round(time.time() - start, 3)
+
+    print(f"BTC_FREE_TIMEOUT_AFTER: {elapsed}s")
 
     return 0.0
 
