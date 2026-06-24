@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-APP_VERSION = "2026-06-24-v24"
+APP_VERSION = "2026-06-24-v25"
 
 PROCESSED_EVENTS = set()
 
@@ -187,6 +187,19 @@ def get_margin_btc_free():
 
     return 0.0
 
+def wait_for_margin_btc_free(max_attempts=6, delay_seconds=1):
+    for attempt in range(1, max_attempts + 1):
+        btc_free = get_margin_btc_free()
+
+        print(f"WAIT_BTC_FREE_ATTEMPT {attempt}/{max_attempts}: {btc_free}")
+
+        if btc_free > 0:
+            return btc_free
+
+        time.sleep(delay_seconds)
+
+    return 0.0
+
 def calculate_position_size(
     capital_available,
     capital_pct,
@@ -258,7 +271,7 @@ def build_order_plan(data, position_calc):
     }
 
 def place_long_stop_loss(quantity, sl_price):
-    btc_free = get_margin_btc_free()
+    btc_free = wait_for_margin_btc_free()
     btc_qty = round_step_size(btc_free, "0.00001")
     stop_price = round(float(sl_price), 2)
 
@@ -267,9 +280,16 @@ def place_long_stop_loss(quantity, sl_price):
     print("LONG_STOP_PRICE:", stop_price)
 
     if float(btc_qty) <= 0:
+        send_push(
+            "⚠️ URGENT BTC BOT\n"
+            "Position LONG probablement ouverte mais stop non créé.\n"
+            f"BTC free: {btc_free}\n"
+            f"BTC qty: {btc_qty}"
+        )
+
         return {
-            "status": "ignored",
-            "reason": "stop quantity too small",
+            "status": "critical_error",
+            "reason": "stop quantity too small after waiting for BTC free",
             "btc_free": btc_free,
             "btc_qty": btc_qty,
         }
