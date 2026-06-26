@@ -120,3 +120,25 @@ class CoinbaseAPI:
         r.raise_for_status()
 
         return r.json()
+
+    def create_order(self, payload):
+
+        path = "/api/v3/brokerage/orders"
+
+        token = self._jwt("POST", path)
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        r = requests.post(
+            BASE_URL + path,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+
+        r.raise_for_status()
+
+        return r.json()
