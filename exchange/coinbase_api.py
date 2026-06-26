@@ -142,3 +142,29 @@ class CoinbaseAPI:
         r.raise_for_status()
 
         return r.json()
+
+    def preview_order(self, payload):
+
+        path = "/api/v3/brokerage/orders/preview"
+
+        token = self._jwt("POST", path)
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        r = requests.post(
+            BASE_URL + path,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+
+        if not r.ok:
+            print("STATUS:", r.status_code)
+            print("BODY:", r.text)
+
+        r.raise_for_status()
+
+        return r.json()
