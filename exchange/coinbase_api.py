@@ -100,3 +100,23 @@ class CoinbaseAPI:
         r.raise_for_status()
 
         return r.json()
+
+    def get_orders(self):
+
+        path = "/api/v3/brokerage/orders/historical/batch"
+
+        token = self._jwt("GET", path)
+
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+
+        r = requests.get(
+            BASE_URL + path,
+            headers=headers,
+            timeout=30
+        )
+
+        r.raise_for_status()
+
+        return r.json()
