@@ -40,9 +40,9 @@ class CoinbaseAPI:
 
         return r.json()
 
-    def get_product(self, product_id):
+    def get_products(self, params=None):
 
-        path = f"/api/v3/brokerage/products/{product_id}"
+        path = "/api/v3/brokerage/products"
 
         token = self._jwt("GET", path)
 
@@ -53,6 +53,7 @@ class CoinbaseAPI:
         r = requests.get(
             BASE_URL + path,
             headers=headers,
+            params=params or {},
             timeout=30
         )
 
