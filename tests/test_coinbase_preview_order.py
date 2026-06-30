@@ -7,13 +7,15 @@ coinbase = CoinbaseAPI(
 )
 
 payload = {
-    "product_id": "BTC-PERP-INTX",
+    "product_id": "BIP-20DEC30-CDE",
     "side": "BUY",
+    "commission_rate": {},
     "order_configuration": {
-        "market_market_ioc": {
-            "base_size": "1"
+        "marketMarketIoc": {
+            "baseSize": "1"
         }
-    }
+    },
+    "skip_fcm_risk_check": True
 }
 
 print("=== PREVIEW ORDER ===")
