@@ -8,6 +8,6 @@ coinbase = CoinbaseAPI(
 
 print("=== TEST BTC PERP ===")
 
-product = coinbase.get_product("BTC-PERP-INTX")
+product = coinbase.get_product("BIP-20DEC30-CDE")
 
 print(product)
