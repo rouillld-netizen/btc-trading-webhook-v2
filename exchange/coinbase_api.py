@@ -2,7 +2,7 @@ import requests
 from coinbase import jwt_generator
 
 BASE_URL = "https://api.coinbase.com"
-
+FCM_BTC_PERP = "BIP-20DEC30-CDE"
 
 class CoinbaseAPI:
 
@@ -139,6 +139,10 @@ class CoinbaseAPI:
             timeout=30
         )
 
+        if not r.ok:
+            print("STATUS:", r.status_code)
+            print("BODY:", r.text)
+
         r.raise_for_status()
 
         return r.json()
@@ -168,3 +172,47 @@ class CoinbaseAPI:
         r.raise_for_status()
 
         return r.json()
+
+    def open_long_with_stop(self, contracts, stop_trigger_price, limit_price, client_order_id):
+
+        payload = {
+            "client_order_id": client_order_id,
+            "product_id": FCM_BTC_PERP,
+            "side": "BUY",
+            "order_configuration": {
+                "marketMarketIoc": {
+                    "baseSize": str(contracts)
+                }
+            },
+            "attached_order_configuration": {
+                "triggerBracketGtc": {
+                    "stopTriggerPrice": str(stop_trigger_price),
+                    "limitPrice": str(limit_price)
+                }
+            }
+        }
+
+        return self.create_order(payload)
+
+    def create_market_order(self, side, contracts, client_order_id, stop_trigger_price=None, limit_price=None):
+
+        payload = {
+            "client_order_id": client_order_id,
+            "product_id": FCM_BTC_PERP,
+            "side": side,
+            "order_configuration": {
+                "marketMarketIoc": {
+                    "baseSize": str(contracts)
+                }
+            }
+        }
+
+        if stop_trigger_price is not None and limit_price is not None:
+            payload["attached_order_configuration"] = {
+                "triggerBracketGtc": {
+                    "stopTriggerPrice": str(stop_trigger_price),
+                    "limitPrice": str(limit_price)
+                }
+            }
+
+        return self.create_order(payload)
