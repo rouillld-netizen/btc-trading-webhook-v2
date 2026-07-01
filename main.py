@@ -15,6 +15,9 @@ app = FastAPI()
 exchange = create_exchange("coinbase")
 engine = TradeEngine(exchange)
 
+print("TradeEngine chargé :", TradeEngine)
+print("Fichier :", TradeEngine.__module__)
+
 APP_VERSION = "2026-06-24-v26"
 
 PROCESSED_EVENTS = set()
@@ -55,6 +58,46 @@ def engine_status():
         "balance": engine.get_balance(),
         "position": engine.get_position(),
         "protection": engine.get_protection_order(),
+    }
+
+@app.post("/engine/webhook-test")
+async def engine_webhook_test(request: Request):
+    data = await request.json()
+
+    if data.get("confirm") != "OUI":
+        return {
+            "status": "cancelled",
+            "message": "Ajoute confirm='OUI' pour exécuter réellement.",
+            "received": data,
+        }
+
+    result = engine.handle(data)
+
+    return {
+        "status": "executed",
+        "result": result,
+    }
+
+@app.post("/coinbase/webhook")
+async def coinbase_webhook(request: Request):
+    data = await request.json()
+    print("DEBUG secret reçu    :", repr(data.get("secret")))
+    print("DEBUG WEBHOOK_SECRET :", repr(WEBHOOK_SECRET))
+    if data.get("secret") != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+
+    if data.get("confirm") != "OUI":
+        return {
+            "status": "cancelled",
+            "message": "Webhook Coinbase reçu mais non exécuté. Ajoute confirm='OUI' pour test réel.",
+            "received": data,
+        }
+
+    result = engine.handle(data)
+
+    return {
+        "status": "executed",
+        "result": result,
     }
 
 @app.get("/binance/ping")
@@ -711,3 +754,4 @@ async def webhook(request: Request):
         "position_calc": position_calc,
         "order_plan": order_plan,
     }
+
