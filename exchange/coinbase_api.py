@@ -332,6 +332,22 @@ class CoinbaseAPI(ExchangeAdapter):
                 return order
 
         return None
+    
+    def get_protection_order(self):
+
+        open_orders = self.get_open_orders()
+
+        for order in open_orders:
+
+            order_type = order.get("order_type")
+
+            if order_type in (
+                "TAKE_PROFIT_STOP_LOSS",
+                "BRACKET",
+            ):
+                return order
+
+        return None
 
     def cancel_protection_order(self):
 
@@ -344,3 +360,20 @@ class CoinbaseAPI(ExchangeAdapter):
             }
 
         return self.cancel_order(protection_order["order_id"])
+
+    def create_protection_order(self, side, contracts, stop_trigger_price, limit_price, client_order_id):
+
+        payload = {
+            "client_order_id": client_order_id,
+            "product_id": FCM_BTC_PERP,
+            "side": side,
+            "order_configuration": {
+                "triggerBracketGtc": {
+                    "baseSize": str(contracts),
+                    "stopTriggerPrice": str(stop_trigger_price),
+                    "limitPrice": str(limit_price),
+                }
+            }
+        }
+
+        return self.create_order(payload)
