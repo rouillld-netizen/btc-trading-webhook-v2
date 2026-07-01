@@ -1,3 +1,6 @@
+import uuid
+
+
 class TradeEngine:
 
     def __init__(self, exchange):
@@ -25,15 +28,31 @@ class TradeEngine:
         )
 
     def handle(self, data):
-
         action = data.get("action")
 
-        if action == "OPEN_LONG":
-            return self.open_long(
-                contracts=data["contracts"],
-                stop_trigger_price=data["stop_price"],
-                limit_price=data["take_profit_price"],
-                client_order_id=data["client_order_id"],
-            )
+        handlers = {
+            "OPEN_LONG": self._handle_open_long,
+        }
 
-        raise ValueError(f"Action non supportée : {action}")
+        if action not in handlers:
+            raise ValueError(f"Action non supportée : {action}")
+
+        return handlers[action](data)
+
+    def _handle_open_long(self, data):
+        client_order_id = data.get("client_order_id")
+
+        if client_order_id is None:
+            client_order_id = f"{data.get('strategy', 'strategy')}-{uuid.uuid4()}"
+
+        contracts = data.get("contracts")
+
+        if contracts is None:
+            contracts = 1
+
+        return self.open_long(
+            contracts=contracts,
+            stop_trigger_price=data["stop_price"],
+            limit_price=data["take_profit_price"],
+            client_order_id=client_order_id,
+        )
