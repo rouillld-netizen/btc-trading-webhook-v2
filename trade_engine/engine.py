@@ -1,5 +1,5 @@
 import uuid
-
+from decimal import Decimal, ROUND_DOWN
 
 class TradeEngine:
 
@@ -56,7 +56,12 @@ class TradeEngine:
         contracts = data.get("contracts")
 
         if contracts is None:
-            contracts = 1
+            contracts = self.calculate_contracts(
+                entry_price=data["entry_price"],
+                stop_price=data["stop_price"],
+                risk_pct=data["risk_pct"],
+                max_leverage=data["max_leverage"],
+            )
 
         return self.open_long(
             contracts=contracts,
@@ -64,3 +69,33 @@ class TradeEngine:
             limit_price=data["take_profit_price"],
             client_order_id=client_order_id,
         )
+
+    def calculate_contracts(self, entry_price, stop_price, risk_pct, max_leverage):
+        balance = self.get_balance("USDC")
+
+        capital = Decimal(balance["available"])
+        entry = Decimal(str(entry_price))
+        stop = Decimal(str(stop_price))
+        risk_pct = Decimal(str(risk_pct))
+        max_leverage = Decimal(str(max_leverage))
+
+        contract_size_btc = Decimal("0.01")
+
+        risk_amount = capital * risk_pct / Decimal("100")
+        risk_per_contract = abs(entry - stop) * contract_size_btc
+
+        if risk_per_contract <= 0:
+            raise ValueError("Distance au stop invalide")
+
+        contracts_by_risk = risk_amount / risk_per_contract
+
+        notional_per_contract = entry * contract_size_btc
+        contracts_by_leverage = (capital * max_leverage) / notional_per_contract
+
+        contracts = min(contracts_by_risk, contracts_by_leverage)
+        contracts = contracts.to_integral_value(rounding=ROUND_DOWN)
+
+        if contracts < 1:
+            contracts = Decimal("1")
+
+        return int(contracts)
