@@ -8,8 +8,12 @@ from datetime import datetime, timezone
 
 import requests
 from fastapi import FastAPI, Request, HTTPException
+from exchange.factory import create_exchange
+from trade_engine.engine import TradeEngine
 
 app = FastAPI()
+exchange = create_exchange("coinbase")
+engine = TradeEngine(exchange)
 
 APP_VERSION = "2026-06-24-v26"
 
@@ -44,6 +48,14 @@ def get_ip():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.get("/engine/status")
+def engine_status():
+    return {
+        "status": "ok",
+        "balance": engine.get_balance(),
+        "position": engine.get_position(),
+        "protection": engine.get_protection_order(),
+    }
 
 @app.get("/binance/ping")
 def binance_ping():
