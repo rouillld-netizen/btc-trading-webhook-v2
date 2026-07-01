@@ -12,7 +12,7 @@ data = {
     "risk_pct": 1.0,
     "entry_price": 58495,
     "stop_price": 58000,
-    "take_profit_price": 59030,
+    "take_profit_price": 61000,
     "max_leverage": 3,
     "notify": True,
 }

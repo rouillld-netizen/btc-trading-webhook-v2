@@ -40,6 +40,14 @@ class TradeEngine:
         return handlers[action](data)
 
     def _handle_open_long(self, data):
+        position = self.get_position()
+
+        if position is not None and data.get("pyramiding") is not True:
+            return {
+                "status": "ignored",
+                "reason": "Position déjà ouverte et pyramidage non autorisé.",
+                "position": position,
+            }        
         client_order_id = data.get("client_order_id")
 
         if client_order_id is None:
